@@ -8,6 +8,7 @@ Stable, PowerShell ISE compatible version (no null or aborted connections)
 - Downloads all tools reliably
 - Auto-unzips .zip files
 - Shows progress for each file
+- Opens the created folder after completion
 #>
 
 Clear-Host
@@ -99,3 +100,6 @@ foreach ($url in $urls) {
 
 Show-Progress "Downloading tools" "All done!" 100
 Write-Host "`nAll tools downloaded successfully to: $folder" -ForegroundColor Green
+
+# Open the folder when done
+Start-Process explorer.exe $folder
