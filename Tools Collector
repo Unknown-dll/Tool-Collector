@@ -6,7 +6,7 @@ Stable, PowerShell ISE compatible version (no null or aborted connections)
 - Displays banner
 - Creates C:\SS1, SS2, SS3... as needed
 - Downloads all tools reliably
-- Auto-unzips .zip files
+- Auto-unzips .zip files (faster method)
 - Shows progress for each file
 - Opens the created folder after completion
 #>
@@ -88,7 +88,13 @@ foreach ($url in $urls) {
     if ($ok -and $filePath.ToLower().EndsWith('.zip')) {
         try {
             $outDir = Join-Path $folder ([System.IO.Path]::GetFileNameWithoutExtension($filePath))
-            Expand-Archive -Path $filePath -DestinationPath $outDir -Force
+            # Create output folder if it doesn't exist
+            if (-not (Test-Path $outDir)) { New-Item -Path $outDir -ItemType Directory | Out-Null }
+
+            # Faster unzip using .NET
+            [System.IO.Compression.ZipFile]::ExtractToDirectory($filePath, $outDir)
+
+            # Remove the original zip
             Remove-Item $filePath -Force
             Write-Host "Extracted: $outDir" -ForegroundColor Cyan
         }
