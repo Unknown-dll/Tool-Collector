@@ -1,0 +1,101 @@
+<#
+Tools Collector - PowerShell script
+Made by: unknown
+
+Stable, PowerShell ISE compatible version (no null or aborted connections)
+- Displays banner
+- Creates C:\SS1, SS2, SS3... as needed
+- Downloads all tools reliably
+- Auto-unzips .zip files
+- Shows progress for each file
+#>
+
+Clear-Host
+Write-Host "`nTools Collector" -ForegroundColor Cyan
+Write-Host "---------------" -ForegroundColor DarkGray
+Write-Host "made by unknown`n" -ForegroundColor Gray
+
+# Folder setup
+$root = 'C:\'
+$name = 'SS'
+$i = 1
+while (Test-Path -Path ("$root$name$i")) { $i++ }
+$folder = "$root$name$i"
+New-Item -Path $folder -ItemType Directory | Out-Null
+Write-Host "Created folder: $folder`n" -ForegroundColor Green
+
+# File URLs
+$urls = @(
+    'https://github.com/spokwn/BAM-parser/releases/download/v1.2.9/BAMParser.exe',
+    'https://github.com/spokwn/Tool/releases/download/v1.1.3/espouken.exe',
+    'https://github.com/spokwn/KernelLiveDumpTool/releases/download/v1.1/KernelLiveDumpTool.exe',
+    'https://github.com/spokwn/PathsParser/releases/download/v1.2/PathsParser.exe',
+    'https://github.com/spokwn/prefetch-parser/releases/download/v1.5.5/PrefetchParser.exe',
+    'https://github.com/spokwn/JournalTrace/releases/download/1.2/JournalTrace.exe',
+    'https://www.nirsoft.net/utils/winprefetchview-x64.zip',
+    'https://github.com/winsiderss/si-builds/releases/download/3.2.25275.112/systeminformer-build-canary-setup.exe',
+    'https://www.nirsoft.net/utils/usbdeview-x64.zip',
+    'https://www.nirsoft.net/utils/networkusageview-x64.zip',
+    'https://d1kpmuwb7gvu1i.cloudfront.net/AccessData_FTK_Imager_4.7.1.exe',
+    'https://github.com/Yamato-Security/hayabusa/releases/download/v3.6.0/hayabusa-3.6.0-win-x64.zip',
+    'https://download.ericzimmermanstools.com/net9/TimelineExplorer.zip'
+)
+
+# Ensure TLS 1.2+ (GitHub and HTTPS compatibility)
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+function Show-Progress($activity, $status, $percent) {
+    Write-Progress -Activity $activity -Status $status -PercentComplete $percent
+}
+
+function Reliable-Download($url, $dest) {
+    $attempts = 0
+    while ($attempts -lt 3) {
+        try {
+            $attempts++
+            $wc = New-Object System.Net.WebClient
+            $wc.Headers.Add('User-Agent','Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+            $wc.DownloadFile($url, $dest)
+            return $true
+        }
+        catch {
+            if ($attempts -ge 3) {
+                Write-Host "Failed: $url -> $($_.Exception.Message)" -ForegroundColor Red
+                return $false
+            }
+            else {
+                Write-Host "Retrying ($attempts/3) for $url..." -ForegroundColor Yellow
+                Start-Sleep -Seconds 2
+            }
+        }
+    }
+}
+
+$counter = 0
+foreach ($url in $urls) {
+    $counter++
+    $fileName = [System.IO.Path]::GetFileName($url)
+    $filePath = Join-Path $folder $fileName
+    Write-Host "Starting: $fileName" -ForegroundColor Yellow
+
+    $ok = Reliable-Download -url $url -dest $filePath
+
+    if ($ok -and $filePath.ToLower().EndsWith('.zip')) {
+        try {
+            $outDir = Join-Path $folder ([System.IO.Path]::GetFileNameWithoutExtension($filePath))
+            Expand-Archive -Path $filePath -DestinationPath $outDir -Force
+            Remove-Item $filePath -Force
+            Write-Host "Extracted: $outDir" -ForegroundColor Cyan
+        }
+        catch {
+            Write-Host "Failed to unzip $fileName -> $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
+
+    Show-Progress "Downloading tools" "Completed $counter of $($urls.Count)" (($counter / $urls.Count) * 100)
+}
+
+Show-Progress "Downloading tools" "All done!" 100
+Write-Host "`nAll tools downloaded successfully to: $folder" -ForegroundColor Green
