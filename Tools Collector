@@ -1,20 +1,15 @@
 <#
-Tools Collector - PowerShell script
+Tools Collector - PowerShell Script (Enhanced UI Version)
 Made by: unknown
-
-Stable, PowerShell ISE compatible version (no null or aborted connections)
-- Displays banner
-- Creates C:\SS1, SS2, SS3... as needed
-- Downloads all tools reliably
-- Auto-unzips .zip files (faster method)
-- Shows progress for each file
-- Opens the created folder after completion
+Improved by: ChatGPT (UI + Timer + Spinner)
 #>
 
 Clear-Host
-Write-Host "`nTools Collector" -ForegroundColor Cyan
-Write-Host "---------------" -ForegroundColor DarkGray
-Write-Host "made by unknown`n" -ForegroundColor Gray
+$host.UI.RawUI.WindowTitle = "🧰 Tools Collector"
+Write-Host "`n==========================" -ForegroundColor DarkCyan
+Write-Host "      TOOLS COLLECTOR     " -ForegroundColor Cyan
+Write-Host "==========================" -ForegroundColor DarkCyan
+Write-Host "Made by: unknown `n" -ForegroundColor Gray
 
 # Folder setup
 $root = 'C:\'
@@ -23,7 +18,7 @@ $i = 1
 while (Test-Path -Path ("$root$name$i")) { $i++ }
 $folder = "$root$name$i"
 New-Item -Path $folder -ItemType Directory | Out-Null
-Write-Host "Created folder: $folder`n" -ForegroundColor Green
+Write-Host "[+] Created folder: $folder`n" -ForegroundColor Green
 
 # File URLs
 $urls = @(
@@ -41,18 +36,25 @@ $urls = @(
     'https://github.com/Yamato-Security/hayabusa/releases/download/v3.6.0/hayabusa-3.6.0-win-x64.zip',
     'https://download.ericzimmermanstools.com/net9/TimelineExplorer.zip',
     'https://www.nirsoft.net/utils/usbdrivelog.zip',
-    'https://www.voidtools.com/Everything-1.4.1.1029.x64-Setup.exe'
+    'https://www.voidtools.com/Everything-1.4.1.1029.x64-Setup.exe',
+    'https://www.nirsoft.net/utils/previousfilesrecovery-x64.zip',
+    'https://github.com/Col-E/Recaf/releases/download/2.21.14/recaf-2.21.14-J8-jar-with-dependencies.jar',
+    'https://github.com/NotRequiem/InjGen/releases/download/v2.0/InjGen.exe'
 )
 
-# Ensure TLS 1.2+ (GitHub and HTTPS compatibility)
+# Ensure TLS 1.2+
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
-
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-function Show-Progress($activity, $status, $percent) {
-    Write-Progress -Activity $activity -Status $status -PercentComplete $percent
+# Spinner setup
+$spinnerChars = @("|", "/", "-", "\")
+function Show-Spinner {
+    param([int]$i, [string]$text)
+    $char = $spinnerChars[$i % $spinnerChars.Length]
+    Write-Host -NoNewline "`r[$char] $text  "
 }
 
+# Reliable Download
 function Reliable-Download($url, $dest) {
     $attempts = 0
     while ($attempts -lt 3) {
@@ -60,16 +62,39 @@ function Reliable-Download($url, $dest) {
             $attempts++
             $wc = New-Object System.Net.WebClient
             $wc.Headers.Add('User-Agent','Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+
+            # Timer start
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+            # Spinner + progress bar thread
+            $job = Start-Job -ScriptBlock {
+                param($text)
+                $spinnerChars = @("|","/","-","\")
+                $i = 0
+                while ($true) {
+                    Write-Host -NoNewline "`r[$($spinnerChars[$i % 4])] $text  "
+                    Start-Sleep -Milliseconds 150
+                    $i++
+                }
+            } -ArgumentList ("Downloading $([System.IO.Path]::GetFileName($url))")
+
             $wc.DownloadFile($url, $dest)
+
+            Stop-Job $job | Out-Null
+            Remove-Job $job | Out-Null
+
+            $sw.Stop()
+            $time = [Math]::Round($sw.Elapsed.TotalSeconds, 2)
+            Write-Host "`r[✓] Downloaded: $(Split-Path $dest -Leaf) ($time sec)" -ForegroundColor Green
             return $true
         }
         catch {
             if ($attempts -ge 3) {
-                Write-Host "Failed: $url -> $($_.Exception.Message)" -ForegroundColor Red
+                Write-Host "`r[✗] Failed: $url -> $($_.Exception.Message)" -ForegroundColor Red
                 return $false
             }
             else {
-                Write-Host "Retrying ($attempts/3) for $url..." -ForegroundColor Yellow
+                Write-Host "`r[!] Retrying ($attempts/3) for $url..." -ForegroundColor Yellow
                 Start-Sleep -Seconds 2
             }
         }
@@ -77,37 +102,35 @@ function Reliable-Download($url, $dest) {
 }
 
 $counter = 0
+$total = $urls.Count
+
 foreach ($url in $urls) {
     $counter++
     $fileName = [System.IO.Path]::GetFileName($url)
     $filePath = Join-Path $folder $fileName
-    Write-Host "Starting: $fileName" -ForegroundColor Yellow
+    Write-Host "`n[$counter/$total] Starting: $fileName" -ForegroundColor Cyan
 
     $ok = Reliable-Download -url $url -dest $filePath
 
     if ($ok -and $filePath.ToLower().EndsWith('.zip')) {
         try {
             $outDir = Join-Path $folder ([System.IO.Path]::GetFileNameWithoutExtension($filePath))
-            # Create output folder if it doesn't exist
             if (-not (Test-Path $outDir)) { New-Item -Path $outDir -ItemType Directory | Out-Null }
 
-            # Faster unzip using .NET
             [System.IO.Compression.ZipFile]::ExtractToDirectory($filePath, $outDir)
-
-            # Remove the original zip
             Remove-Item $filePath -Force
-            Write-Host "Extracted: $outDir" -ForegroundColor Cyan
+            Write-Host "    [✓] Extracted to: $outDir" -ForegroundColor DarkCyan
         }
         catch {
-            Write-Host "Failed to unzip $fileName -> $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "    [✗] Failed to unzip $fileName -> $($_.Exception.Message)" -ForegroundColor Red
         }
     }
 
-    Show-Progress "Downloading tools" "Completed $counter of $($urls.Count)" (($counter / $urls.Count) * 100)
+    $progress = [Math]::Round(($counter / $total) * 100, 0)
+    Write-Progress -Activity "Downloading Tools..." -Status "$counter of $total complete" -PercentComplete $progress
 }
 
-Show-Progress "Downloading tools" "All done!" 100
-Write-Host "`nAll tools downloaded successfully to: $folder" -ForegroundColor Green
+Write-Progress -Activity "Downloading Tools..." -Status "All Done!" -Completed
+Write-Host "`n✅ All tools downloaded successfully to: $folder" -ForegroundColor Green
 
-# Open the folder when done
 Start-Process explorer.exe $folder
