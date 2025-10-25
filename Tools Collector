@@ -1,15 +1,10 @@
-<#
-Tools Collector - PowerShell Script (Enhanced UI Version)
-Made by: unknown
-Improved by: ChatGPT (UI + Timer + Spinner)
-#>
 
 Clear-Host
 $host.UI.RawUI.WindowTitle = "🧰 Tools Collector"
 Write-Host "`n==========================" -ForegroundColor DarkCyan
 Write-Host "      TOOLS COLLECTOR     " -ForegroundColor Cyan
 Write-Host "==========================" -ForegroundColor DarkCyan
-Write-Host "Made by: unknown `n" -ForegroundColor Gray
+Write-Host "Made by: unknown`n" -ForegroundColor Gray
 
 # Folder setup
 $root = 'C:\'
@@ -131,6 +126,6 @@ foreach ($url in $urls) {
 }
 
 Write-Progress -Activity "Downloading Tools..." -Status "All Done!" -Completed
-Write-Host "`n✅ All tools downloaded successfully to: $folder" -ForegroundColor Green
+Write-Host "`nAll tools downloaded successfully to: $folder" -ForegroundColor Green
 
 Start-Process explorer.exe $folder
