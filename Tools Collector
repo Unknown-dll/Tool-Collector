@@ -4,7 +4,7 @@ $host.UI.RawUI.WindowTitle = "🧰 Tools Collector"
 Write-Host "`n==========================" -ForegroundColor DarkCyan
 Write-Host "      TOOLS COLLECTOR     " -ForegroundColor Cyan
 Write-Host "==========================" -ForegroundColor DarkCyan
-Write-Host "Made by: unknown`n" -ForegroundColor Gray
+Write-Host "Made by: Unknown`n" -ForegroundColor Gray
 
 # Folder setup
 $root = 'C:\'
