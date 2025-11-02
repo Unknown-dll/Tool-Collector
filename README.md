@@ -1,1 +1,1 @@
-Downloads the main and basic ss tools used for fivem and minecraft from reliable and trusted sources.
+Downloads the main and basic ss tools used in minecraft from reliable and trusted sources.
